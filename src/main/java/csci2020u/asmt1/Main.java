@@ -11,8 +11,10 @@ import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Scanner;
 import java.util.TreeMap;
 
 
@@ -21,7 +23,7 @@ public class Main extends Application {
 	private static enum FileType { HAM, SPAM }
 	private TreeMap<String, Integer> trainingHamFreq;
 	private TreeMap<String, Integer> trainingSpamFreq;
-	private TreeMap<String, Double> spamProbabilityOfWord;
+	private TreeMap<String, Double> probabilityOfSpamIfContains;
 	private Label accuracyLabel;
 	private Label precisionLabel;
 	private TextField accuracyValue;
@@ -150,19 +152,101 @@ public class Main extends Application {
 	 *
 	 *	@exception IOException if an error occurs while 
 	 */
-	private void trainProgram(File dir) throws IOException {
+	private void trainProgram(File dir) throws FileNotFoundException,
+														 IOException {
 
 		ArrayList<File> hamFileList = new ArrayList<>();
 		ArrayList<File> spamFileList = new ArrayList<>();
 		trainingHamFreq = new TreeMap<>();
 		trainingSpamFreq = new TreeMap<>();
-		spamProbabilityOfWord = new TreeMap<>();
-		TreeMap<String, Integer> numFilesContainingWord = new TreeMap<>();
+		probabilityOfSpamIfContains = new TreeMap<>();
 
 		// Build list of ham and spam files
 		buildFileList(dir, FileType.HAM, hamFileList, spamFileList);
+
+		// Parse ham files
+		for (File file: hamFileList) {
+			parseFile(file, trainingHamFreq);
+		}
+		// Parse spam files
+		for (File file: spamFileList) {
+			parseFile(file, trainingSpamFreq);
+		}
+
+		// Calculate probability of file being spam if it contains
+		// a specific word
+		for (String word: trainingSpamFreq.keySet()) {
+			double wordCountInHam = 0.0;
+			if (trainingHamFreq.containsKey(word)) {
+				wordCountInHam = trainingHamFreq.get(word);
+			}
+			double wordCountInSpam = 0.0;
+			if (trainingSpamFreq.containsKey(word)) {
+				wordCountInSpam = trainingSpamFreq.get(word);
+			}
+			double probability = wordCountInSpam / 
+								(wordCountInSpam + wordCountInHam);
+			System.out.println(word + ": " + probability);
+			probabilityOfSpamIfContains.put(word, probability);
+		}
 	}
 
+	/**
+	 *	Reads contents of file, count the number of each word in the file and
+	 *	
+	 *
+	 *	@param file The file to read
+	 *	@param numFilesContainingWord The TreeMap<String, Integer> containing 
+	 *	the number of ham/spam files that contains words that the file contains
+	 *
+	 *	@exception FileNotFoundException if the file does not exist
+	 */
+	private void parseFile(File file, 
+							TreeMap<String, Integer>numFilesContainingWord) 
+												throws FileNotFoundException {
+
+		TreeMap<String, Integer> wordCount = new TreeMap<>();
+		String pattern = "^[a-zA-z]+$";
+		Scanner scanner = new Scanner(file);
+		scanner.useDelimiter("[\\s\\.:;\\?\\!,]");
+		int numWords = 0;
+
+		// Read contents of file
+		while (scanner.hasNext()) {
+			String word = scanner.next().toLowerCase();
+
+			if (word.matches(pattern)) {
+				incrementCount(word, wordCount);
+				numWords++;
+			}
+		}
+
+		// Add to the count of files containing the words in file
+		for (String word: wordCount.keySet()) {
+			incrementCount(word, numFilesContainingWord);
+		}
+
+	}
+
+	/**
+	 *	Increments the count of a word in a TreeMap<String, Integer> object
+	 *
+	 *	@param word The word to increment the count of
+	 *	@param map The TreeMap<String, Integer> that keeps the count of words
+	 */
+	private void incrementCount(String word, TreeMap<String, Integer> map) {
+		if (map.containsKey(word)) {
+			// Map already contains word and its count: Increment the count by 1
+			map.put(word, map.get(word) + 1);
+		} else {
+			// Add new word to map with its count at 1
+			map.put(word, 1);
+		}
+	}
+
+	/**
+	 *	Launches the JavaFX application
+	 */
 	public static void main(String[] args) {
 		launch(args);
 	}
