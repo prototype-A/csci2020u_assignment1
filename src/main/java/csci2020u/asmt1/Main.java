@@ -1,21 +1,25 @@
 package csci2020u.asmt1;
 
 import javafx.application.Application;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.ObservableList;
 import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
+import javafx.scene.control.TableColumn.CellDataFeatures;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.Scene;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
+import javafx.util.Callback;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.Comparable;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Scanner;
@@ -32,6 +36,8 @@ public class Main extends Application {
 	private TreeMap<String, Integer> trainingSpamFreq;
 	private TreeMap<String, Double> probabilityOfSpamIfContains;
 	private ObservableList<TestFile> testResults;
+	private double accuracy;
+	private double precision;
 	private Label accuracyLabel;
 	private Label precisionLabel;
 	private TextField accuracyValue;
@@ -82,22 +88,21 @@ public class Main extends Application {
 		fileClassCol.setMinWidth(Math.round(WIN_WIDTH*0.125));
 		fileClassCol.setCellValueFactory(new PropertyValueFactory<>("actualClass"));
 
-		TableColumn<TestFile, Double> fileSpamProbCol = null;
+		TableColumn<TestFile, String> fileSpamProbCol = null;
 		fileSpamProbCol = new TableColumn<>("Spam Probability");
 		fileSpamProbCol.setMinWidth(Math.round(WIN_WIDTH*0.3125));
-		fileSpamProbCol.setCellValueFactory(new PropertyValueFactory<>("spamProbability"));
+		fileSpamProbCol.setCellValueFactory(new PropertyValueFactory<>("roundedSpamProbability"));
 
 		fileTable.getColumns().setAll(fileNameCol, fileClassCol, fileSpamProbCol);
-
 
 		// Accuracy and Precision
 		GridPane resultsSection = new GridPane();
 		resultsSection.setPadding(new Insets(10, 10, 10, 10));
 		accuracyLabel = new Label("Accuracy:\t");
-		accuracyValue = new TextField();
+		accuracyValue = new TextField(new DecimalFormat("0.00000").format(accuracy));
 		accuracyValue.setEditable(false);
 		precisionLabel = new Label("Precision:\t");
-		precisionValue = new TextField();
+		precisionValue = new TextField(new DecimalFormat("0.00000").format(precision));
 		precisionValue.setEditable(false);
 		resultsSection.add(accuracyLabel, 0, 0);
 		resultsSection.add(accuracyValue, 1, 0);
@@ -121,7 +126,7 @@ public class Main extends Application {
 	}
 
 	/**
-	 * Recursively iterates through all training files and subdirectories
+	 * Recursively iterates through all files and subdirectories
 	 * and adds ham and spam files to their respective lists
 	 *
 	 *
@@ -359,6 +364,8 @@ public class Main extends Application {
 				probability = spamAppearProbability / (spamAppearProbability + hamAppearProbability);
 			}
 			probabilityOfSpamIfContains.put(word, probability);
+
+			
 		}
 	}
 
@@ -397,6 +404,26 @@ public class Main extends Application {
 			testFileResults.add(parseTestFile(file, FILE_TYPE[1]));
 		}
 
+		// Calculate accuracy and precision of test results
+		double numTruePositives = 0.0;
+		double numTrueNegatives = 0.0;
+		double numFalsePositives = 0.0;
+		TestFile file = null;
+		Iterator<TestFile> testFileIter = testFileResults.iterator();
+
+		while (testFileIter.hasNext()) {
+			file = testFileIter.next();
+
+			if (file.getActualClass().equals("Spam") && file.getSpamProbability() > 0.5) {
+				numTruePositives++;
+			} else if (file.getActualClass().equals("Ham") && file.getSpamProbability() <= 0.5) {
+				numTrueNegatives++;
+			} else if (file.getActualClass().equals("Ham") && file.getSpamProbability() > 0.5) {
+				numFalsePositives++;
+			}
+		}
+		accuracy =  (numTruePositives + numTrueNegatives) / (hamFileList.size() + spamFileList.size());
+		precision = numTruePositives / (numFalsePositives + numTruePositives);
 
 		return testFileResults;
 	}
