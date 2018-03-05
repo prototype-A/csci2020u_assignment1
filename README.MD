@@ -8,8 +8,9 @@
 ## How to Compile
 
 ### Requisites
-* Git installed/Repo downloaded as zip and extracted
-* Gradle installed
+* Repo cloned/downloaded as zip and extracted
+* Java is installed (Tested using OpenJDK 8)
+* Gradle is installed (Tested using Gradle 4.4.1)
 
 ### Commands
 
