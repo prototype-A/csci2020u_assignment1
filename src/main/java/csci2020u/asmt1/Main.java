@@ -15,6 +15,7 @@ import javafx.stage.Stage;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.Comparable;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Scanner;
@@ -67,6 +68,8 @@ public class Main extends Application {
 
 		// Table
 		TableView<TestFile> fileTable = new TableView<>();
+		fileTable.setItems(testResults);
+		fileTable.setEditable(false);
 
 		// Table Columns
 		TableColumn<TestFile, String> fileNameCol = null;
@@ -86,13 +89,16 @@ public class Main extends Application {
 
 		fileTable.getColumns().setAll(fileNameCol, fileClassCol, fileSpamProbCol);
 
+
 		// Accuracy and Precision
 		GridPane resultsSection = new GridPane();
 		resultsSection.setPadding(new Insets(10, 10, 10, 10));
-		accuracyLabel = new Label("Accuracy:");
+		accuracyLabel = new Label("Accuracy:\t");
 		accuracyValue = new TextField();
-		precisionLabel = new Label("Precision:");
+		accuracyValue.setEditable(false);
+		precisionLabel = new Label("Precision:\t");
 		precisionValue = new TextField();
+		precisionValue.setEditable(false);
 		resultsSection.add(accuracyLabel, 0, 0);
 		resultsSection.add(accuracyValue, 1, 0);
 		resultsSection.add(precisionLabel, 0, 1);
@@ -188,8 +194,9 @@ public class Main extends Application {
 	}
 
 	/**
-	 * Reads contents of the file and count the number of times each word 
-	 * appears in the file
+	 * Reads contents of the file, counts the number of times each word 
+	 * appears in the file and adds newly encountered words to the dictionary 
+	 * of total words encountered overall
 	 *
 	 *
 	 * @param file The file to read
@@ -215,11 +222,13 @@ public class Main extends Application {
 	}
 
 	/**
-	 * Reads contents of the file and count the number of times each word 
-	 * appears in the file
+	 * Reads contents of the file, counts the number of times each word 
+	 * appears in the file and determines, from the training probability
+	 * data, how likely the file is to be spam
 	 *
 	 *
 	 * @param file The file to read
+	 * @param type Whether the input file is "Ham" or "Spam"
 	 *
 	 * @return a TestFile object containing the file's name, spam probabiltiy 
 	 * and its actual classification
@@ -231,21 +240,36 @@ public class Main extends Application {
 		
 		// Read file contents and get its list of words
 		TreeMap<String, Integer> wordCount = parseFile(file);
-		String word = "";
-		Iterator<String> wordListIter = wordList.iterator();
-		double highestProbability = 0.0;
+		double spamProbability = 0.0;
 		double wordSpamProbability = 0.0;
+		double totalWordSpamProb = 0.0;
 
-		while (wordListIter.hasNext()) {
-			word = wordListIter.next();
-
-			wordSpamProbability = probabilityOfSpamIfContains.get(word);
-			if (wordSpamProbability > highestProbability) {
-				highestProbability = wordSpamProbability;
+		// Loop over the different words in file
+		for (String word: wordCount.keySet()) {
+			// Get probability of word
+			if (probabilityOfSpamIfContains.containsKey(word)) {
+				wordSpamProbability = probabilityOfSpamIfContains.get(word);
+			} else {
+				wordSpamProbability = 0.0;
 			}
+			totalWordSpamProb += wordCount.get(word) * (Math.log(1-wordSpamProbability) - Math.log(wordSpamProbability));
 		}
 
-		return new TestFile(file.getName(), highestProbability, type);
+		// Calculate spam probability of file
+		if (Double.isNaN(totalWordSpamProb)) {
+			// Check for Not-a-Number
+			spamProbability = 1.0;
+		} else if (totalWordSpamProb == Double.POSITIVE_INFINITY) {
+			// Check for positive infinity
+			spamProbability = 0.0;
+		} else if (totalWordSpamProb == Double.NEGATIVE_INFINITY) {
+			// Check for negative infinity
+			spamProbability = 1.0;
+		} else {
+			spamProbability = 1.0 / (1.0+Math.exp(totalWordSpamProb));
+		}
+		
+		return new TestFile(file.getName(), spamProbability, type);
 	}
 
 	/**
@@ -272,6 +296,7 @@ public class Main extends Application {
 	 *
 	 * @param dir The directory of the training data
 	 *
+	 * @exception FileNotFoundException if a file was not found
 	 * @exception IOException if an error occurs while 
 	 */
 	private void trainProgram(File dir) throws FileNotFoundException, IOException {
@@ -327,8 +352,12 @@ public class Main extends Application {
 			// Calculate probability of file being spam if it contains a specific word
 			hamAppearProbability = wordCountInHam / hamListSize;
 			spamAppearProbability = wordCountInSpam / spamListSize;
-			probability = spamAppearProbability / (spamAppearProbability + hamAppearProbability);
-
+			if ((spamAppearProbability + hamAppearProbability) == 0.0) {
+				// Handle division by 0
+				probability = 0.0;
+			} else {
+				probability = spamAppearProbability / (spamAppearProbability + hamAppearProbability);
+			}
 			probabilityOfSpamIfContains.put(word, probability);
 		}
 	}
@@ -343,6 +372,7 @@ public class Main extends Application {
 	 * @return an ObservableList of TestFile objects representing the result
 	 * of a tested file 
 	 *
+	 * @exception FileNotFoundException if a file was not found
 	 * @exception IOException if an error occurs while reading the test files
 	 */
 	private ObservableList<TestFile> testFiles(File dir) throws FileNotFoundException, IOException {
@@ -353,6 +383,10 @@ public class Main extends Application {
 
 		// Build list of ham and spam files
 		buildFileList(dir, FILE_TYPE[0], hamFileList, spamFileList);
+
+		// Sort file lists by Name
+		hamFileList.sort(null);
+		spamFileList.sort(null);
 
 		// Parse ham files
 		for (File file: hamFileList) {
