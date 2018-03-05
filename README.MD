@@ -1,8 +1,8 @@
 # Spam Checker
+
 <p>CSCI 2020U Assignment 1</p>
 
 <p>Calculates the probability of "mail" (text files) being either spam or ham (not spam) using a Naive Bayes classifier and the Bag-of-Words model.</p>
-
 
 
 ## How to Compile
@@ -13,17 +13,14 @@
 
 ### Commands
 
-<p>In the cloned/downloaded repo's directory:</p>
+In the cloned/downloaded repo's directory:  
 
-<p>Compile the program:</p>
-<br/>
+Compile the program:  
 `gradle jar`
 
-<p>Navigate to the executable jar's directory:</p>
-<br/>
+Navigate to the executable jar's directory:  
 `cd build/libs`
 
-<p>Run the program:</p>
-<br/>
+Run the program:  
 `java -jar csci2020u_assignment1.jar`
 
