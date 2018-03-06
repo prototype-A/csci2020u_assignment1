@@ -193,6 +193,9 @@ public class Main extends Application {
 			}
 		}
 
+		// Close scanner after finished reading file
+		scanner.close();
+
 
 		return wordCount;
 
